@@ -1,6 +1,10 @@
 import { motion } from "framer-motion";
 import ScoreRing from "./ScoreRing";
 import SkillBadgeList from "./SkillBadgeList";
+import VerdictCard from "./VerdictCard";
+import SectionScoreBars from "./SectionScoreBars";
+import AtsChecklist from "./AtsChecklist";
+import SuggestionsList from "./SuggestionsList";
 import type { MatchResult } from "../types";
 
 interface ResultsPanelProps {
@@ -17,8 +21,14 @@ export default function ResultsPanel({ result }: ResultsPanelProps) {
     >
       <div className="srm-results__top">
         <ScoreRing score={result.score} />
-        {result.cached && <p className="srm-results__cached-note">Loaded from a previous check on this exact pair</p>}
+        {result.cached && (
+          <p className="srm-results__cached-note">Loaded from a previous check on this exact pair</p>
+        )}
       </div>
+
+      <VerdictCard verdict={result.verdict} />
+
+      <SectionScoreBars breakdown={result.breakdown} />
 
       <div className="srm-results__grid">
         <SkillBadgeList
@@ -45,6 +55,10 @@ export default function ResultsPanel({ result }: ResultsPanelProps) {
           </ul>
         </div>
       )}
+
+      <SuggestionsList suggestions={result.suggestions} />
+
+      <AtsChecklist ats={result.ats} />
     </motion.div>
   );
 }

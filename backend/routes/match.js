@@ -4,9 +4,11 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
-const { extractTextFromFile } = require("../utils/parseResume");
-const { computeMatchScore } = require("../utils/similarity");
-const { buildExplanation } = require("../utils/explain");
+const { extractTextFromFile, splitIntoSections } = require("../utils/parseResume");
+const { computeSectionScores } = require("../utils/sectionScore");
+const { buildExplanation, generateVerdict } = require("../utils/explain");
+const { checkAts } = require("../utils/atsCheck");
+const { generateSuggestions } = require("../utils/suggestions");
 
 const router = express.Router();
 
@@ -54,14 +56,40 @@ router.post("/", upload.single("resume"), async (req, res) => {
       return cleanupAndRespond(200, { ...resultCache.get(cacheKey), cached: true });
     }
 
-    const score = computeMatchScore(resumeText, jdText);
+    const sections = splitIntoSections(resumeText);
     const explanation = buildExplanation(resumeText, jdText);
+    const { overall: score, breakdown } = computeSectionScores({
+      resumeSections: sections,
+      resumeText,
+      jdText,
+    });
+    const ats = checkAts(resumeText, sections);
+
+    // Verdict + suggestions can both hit the LLM - run them in parallel so a
+    // configured API key doesn't double the request latency.
+    const [verdict, suggestions] = await Promise.all([
+      generateVerdict({
+        score,
+        matchedSkills: explanation.matchedSkills,
+        missingSkills: explanation.missingSkills,
+        weakAreas: explanation.weakAreas,
+      }),
+      generateSuggestions({
+        resumeSections: sections,
+        missingSkills: explanation.missingSkills,
+        jdText,
+      }),
+    ]);
 
     const result = {
       score,
+      breakdown,
       matchedSkills: explanation.matchedSkills,
       missingSkills: explanation.missingSkills,
       weakAreas: explanation.weakAreas,
+      verdict,
+      suggestions,
+      ats,
       resumeCharCount: resumeText.length,
       cached: false,
     };

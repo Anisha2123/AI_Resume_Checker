@@ -32,12 +32,16 @@ async function extractTextFromFile(filePath, originalName) {
 // so this looks for common section headers rather than trying to be a full
 // resume parser. Good enough for MVP1 - can be swapped for a smarter
 // classifier later without changing the API contract.
+// Each pattern captures the header text so we can also handle resumes where
+// the header and its content sit on the same line/paragraph (e.g.
+// "Skills: JavaScript, React, Node.js...") - common when a DOCX heading and
+// its body get flattened into one paragraph by text extraction.
 const SECTION_HEADERS = {
-  skills: /^(technical\s+)?skills?\b/i,
-  experience: /^(work\s+)?experience\b|^employment\b/i,
-  education: /^education\b/i,
-  projects: /^projects?\b/i,
-  summary: /^summary\b|^objective\b|^profile\b/i,
+  skills: /^(technical\s+)?skills?\b\s*[:\-]?\s*/i,
+  experience: /^((work\s+)?experience|employment)\b\s*[:\-]?\s*/i,
+  education: /^education\b\s*[:\-]?\s*/i,
+  projects: /^projects?\b\s*[:\-]?\s*/i,
+  summary: /^(summary|objective|profile)\b\s*[:\-]?\s*/i,
 };
 
 function splitIntoSections(rawText) {
@@ -46,16 +50,25 @@ function splitIntoSections(rawText) {
   let current = "other";
 
   for (const line of lines) {
-    let matchedHeader = null;
+    let matchedKey = null;
+    let remainder = null;
+
+    // Only treat a line as a header if the header keyword starts the line
+    // and the line isn't a long paragraph that merely happens to begin with
+    // one of these words (e.g. "Experienced engineer..." shouldn't match).
     for (const [key, pattern] of Object.entries(SECTION_HEADERS)) {
-      if (pattern.test(line) && line.length < 40) {
-        matchedHeader = key;
+      const match = line.match(pattern);
+      if (match && match[0].trim().replace(/[:\-]$/, "").length <= 20) {
+        matchedKey = key;
+        remainder = line.slice(match[0].length).trim();
         break;
       }
     }
-    if (matchedHeader) {
-      current = matchedHeader;
-      continue; // don't include the header line itself
+
+    if (matchedKey) {
+      current = matchedKey;
+      if (remainder) sections[current].push(remainder); // header + inline content on one line
+      continue;
     }
     sections[current].push(line);
   }
