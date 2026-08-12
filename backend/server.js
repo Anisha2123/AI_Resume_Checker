@@ -22,6 +22,17 @@ app.use((err, req, res, next) => {
   res.status(400).json({ error: err.message || "Request failed." });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Resume-JD matcher API running on http://localhost:${PORT}`);
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Stop the other process first:`);
+    console.error(`  netstat -ano | findstr :${PORT}`);
+    console.error(`  taskkill /PID <pid> /F`);
+  } else {
+    console.error("Server failed to start:", err.message);
+  }
+  process.exit(1);
 });
