@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const pdfParse = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 const mammoth = require("mammoth");
 
 // Extracts raw text from an uploaded resume file (PDF or DOCX).
@@ -11,8 +11,13 @@ async function extractTextFromFile(filePath, originalName) {
 
   if (ext === ".pdf") {
     const buffer = fs.readFileSync(filePath);
-    const data = await pdfParse(buffer);
-    return data.text;
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      return result.text;
+    } finally {
+      await parser.destroy();
+    }
   }
 
   if (ext === ".docx") {

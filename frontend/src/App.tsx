@@ -3,7 +3,8 @@ import UploadForm from "./components/UploadForm";
 import ResultsPanel from "./components/ResultsPanel";
 import type { MatchResult } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5050";
+// In dev, Vite proxies /api → localhost:5050. Override with VITE_API_BASE for production.
+const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 function App() {
   const [result, setResult] = useState<MatchResult | null>(null);
@@ -31,7 +32,10 @@ function App() {
       }
       setResult(data);
     } catch (err) {
-      setError("Couldn't reach the server. Is the backend running?");
+      console.error("Match request failed:", err);
+      setError(
+        "Couldn't reach the server. Is the backend running on port 5050? (Check the terminal — nodemon restarts briefly after file saves.)"
+      );
     } finally {
       setLoading(false);
     }
